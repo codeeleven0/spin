@@ -90,7 +90,7 @@ fstab() {
     fi
 }
 workstation_install_script() {
-    printf "#!/bin/bash\nprintf 'root\\nroot\\n' | passwd root\nyes | dnf update\nyes | dnf upgrade\nyes | dnf group install workstation-product-environment\nsystemctl --no-pager --no-legend list-unit-files --state=enabled 'virt*.service' | cut -d ' ' -f1 | xargs -r systemctl disable\nsystemctl disable rmtfs\nyes | dnf install NetworkManager brcmfmac-firmware bluez mesa-dri-drivers mesa-vulkan-drivers mesa-demos vulkan-tools git nano NetworkManager-tui NetworkManager-wifi linux-firmware fastfetch\niw reg set US\nsystemctl mask systemd-rfkill.socket\ngit clone --depth 1 https://github.com/raspberrypi/rpi-eeprom /opt/eeprom-updater\nprintf 'root\\nroot\\n' | passwd root\nsystemctl disable systemd-networkd-wait-online\nsystemctl mask network-online.target\nyes | dnf install make kernel-devel gcc gcc-c++ bc bison flex alacritty openssl-devel\nrpi-header-update\nrpi-initramfs-update\nsystemctl enable raspi-firstboot.service"
+    printf "#!/bin/bash\nprintf 'root\\nroot\\n' | passwd root\nyes | dnf update\nyes | dnf upgrade\nyes | dnf group install workstation-product-environment\nsystemctl --no-pager --no-legend list-unit-files --state=enabled 'virt*.service' | cut -d ' ' -f1 | xargs -r systemctl disable\nsystemctl disable rmtfs\nyes | dnf install NetworkManager brcmfmac-firmware bluez mesa-dri-drivers mesa-vulkan-drivers mesa-demos vulkan-tools git nano NetworkManager-tui NetworkManager-wifi linux-firmware fastfetch\niw reg set US\nsystemctl mask systemd-rfkill.socket\ngit clone --depth 1 https://github.com/raspberrypi/rpi-eeprom /opt/eeprom-updater\nprintf 'root\\nroot\\n' | passwd root\nsystemctl disable systemd-networkd-wait-online\nsystemctl mask network-online.target\nyes | dnf install make kernel-devel gcc gcc-c++ bc bison flex alacritty openssl-devel\nrpi-header-update\nrpi-initramfs-update\nsystemctl enable raspi-firstboot.service\nyes | dnf install cloud-utils-growpart e2fsprogs"
 }
 initramfs_updater() {
     printf '#!/bin/bash\ndracut -vf --regenerate-all\ncp /boot/initramfs-$(uname -r).img /boot/initramfs.img\nrpi-boot-update'
@@ -117,7 +117,12 @@ rpi_update() {
     printf '#!/bin/bash\nrpi-eeprom-update\nrpi-kernel-update\nrpi-cmdline-update\nrpi-config-update\nsync'
 }
 firstboot() {
-    printf '#!/bin/bash\ncp /boot/initramfs-$(uname -r).img /boot/initramfs.img\nrpi-boot-update\nrpi-cmdline-update\nrpi-boot-update\nsync\nsystemctl disable raspi-firstboot.service'
+    if [[ "$BOOTMODE" == "mmc" ]]; then
+        printf '#!/bin/bash\ncp /boot/initramfs-$(uname -r).img /boot/initramfs.img\nrpi-boot-update\nrpi-cmdline-update\nrpi-boot-update\nsync\nsystemctl disable raspi-firstboot.service\nyes | growpart /dev/mmcblk0 2\nyes | resize2fs /dev/mmcblk0p2'
+    fi
+    if [[ "$BOOTMODE" == "msd" ]]; then
+        printf '#!/bin/bash\ncp /boot/initramfs-$(uname -r).img /boot/initramfs.img\nrpi-boot-update\nrpi-cmdline-update\nrpi-boot-update\nsync\nsystemctl disable raspi-firstboot.service\nyes | growpart /dev/sda 2\nyes | resize2fs /dev/sda2'
+    fi
 }
 firstbootservice() {
     printf '[Unit]\nDescription=First boot setup\nDefaultDependencies=no\nAfter=systemd-udevd.service systemd-udev-trigger.service systemd-vconsole-setup.service\nConditionFirstBoot=yes\n\n[Service]\nRemainAfterExit=yes\nType=oneshot\nStandardOutput=journal\nStandardError=journal\nExecStart=/sbin/rpi-firstboot\nSendSIGKILL=no\n\n[Install]\nWantedBy=multi-user.target'
