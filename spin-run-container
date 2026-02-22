@@ -16,8 +16,8 @@ mknod /dev/loop99 b 7 99
 fallocate -l 16G fedora-flash.img
 losetup -P /dev/loop99 fedora-flash.img
 sleep 1
-while [ ! -f /dev/loop99p1 ] && [ ! -f /dev/loop99p2 ]; do
-    parted --script /dev/loop99 -- mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
+while [ ! -b /dev/loop99p1 ] || [ ! -b /dev/loop99p2 ]; do
+    parted --script /dev/loop99 mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
     sleep 3
     partprobe
     partprobe /dev/loop99
