@@ -42,7 +42,7 @@ Mount the old boot medium containing the files and clone it to the new boot medi
 * Install docker. (and arm64 support)
 * Configure the spin-container scripts' configuration area.
 * Run `sh setup.sh`
-* You should now have `fedora-flash.img.xz` and `fedora-flash.img`!
+* You should now have `fedora-flash.img`!
 * The container will be deleted after copying images.
 # How to flash?
-* Use the Raspberry Pi Imager to flash `fedora-flash.img.xz` or `fedora-flash.img` to your configured boot medium.
+* Use the Raspberry Pi Imager to flash `fedora-flash.img` to your configured boot medium.
