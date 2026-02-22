@@ -10,27 +10,23 @@ mksquashfs . /root/artifacts/fedora-root.sfs
 cd boot
 mksquashfs . /root/artifacts/fedora-boot.sfs
 cd /root/artifacts
-losetup --detach /dev/loop99
-rm -fr /dev/loop99
-mknod /dev/loop99 b 7 99
 fallocate -l 16G fedora-flash.img
-losetup -P /dev/loop99 fedora-flash.img
+LOOPDEV="$(losetup -fP --show fedora-flash.img)"
+udevadm settle
 sleep 1
-while [ ! -b /dev/loop99p1 ] || [ ! -b /dev/loop99p2 ]; do
-    parted --script /dev/loop99 mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
-    sleep 3
-    partprobe
-    partprobe /dev/loop99
-    sleep 1
-    echo ======
-    ls -l /dev/loop99*
-    echo ======
-done  
-mkfs.fat -F 32 -n FEDORA-BOOT /dev/loop99p1
-mkfs.ext4 -L fedora-root /dev/loop99p2
+parted --script "$LOOPDEV" mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
+sleep 3
+partprobe
+partprobe "$LOOPDEV"
+sleep 1
+echo ======
+ls -l "$LOOPDEV"*
+echo ======
+mkfs.fat -F 32 -n FEDORA-BOOT "$LOOPDEV"p1
+mkfs.ext4 -L fedora-root "$LOOPDEV"p2
 mkdir -p /mnt/fedora-{root,boot}
-mount /dev/loop99p1 /mnt/fedora-boot
-mount /dev/loop99p2 /mnt/fedora-root
+mount "$LOOPDEV"p1 /mnt/fedora-boot
+mount "$LOOPDEV"p2 /mnt/fedora-root
 cd /root/artifacts
 unsquashfs -d /mnt/fedora-root /root/artifacts/fedora-root.sfs 
 unsquashfs -d /mnt/fedora-boot /root/artifacts/fedora-boot.sfs 
@@ -38,6 +34,7 @@ sync
 umount /mnt/fedora-boot
 umount /mnt/fedora-root
 sync
-losetup --detach /dev/loop99
+losetup --detach $LOOPDEV
+sync
 cat /root/artifacts/fedora-flash.img | xz > /root/artifacts/fedora-flash.img.xz
 sync
