@@ -53,5 +53,3 @@ umount /mnt/fedora-root
 sync
 losetup --detach $LOOPDEV
 sync
-cat /root/artifacts/fedora-flash.img | xz > /root/artifacts/fedora-flash.img.xz
-sync
