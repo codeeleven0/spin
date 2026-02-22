@@ -90,7 +90,7 @@ fstab() {
     fi
 }
 workstation_install_script() {
-    printf "#!/bin/bash\nprintf 'root\\nroot\\n' | passwd root\nyes | dnf update\nyes | dnf upgrade\nyes | dnf group install server-product-environment\nsystemctl --no-pager --no-legend list-unit-files --state=enabled 'virt*.service' | cut -d ' ' -f1 | xargs -r systemctl disable\nsystemctl disable rmtfs\nyes | dnf install NetworkManager brcmfmac-firmware bluez mesa-dri-drivers mesa-vulkan-drivers mesa-demos vulkan-tools git nano NetworkManager-tui NetworkManager-wifi linux-firmware fastfetch\niw reg set US\nsystemctl mask systemd-rfkill.socket\ngit clone --depth 1 https://github.com/raspberrypi/rpi-eeprom /opt/eeprom-updater\nprintf 'root\\nroot\\n' | passwd root\nsystemctl disable systemd-networkd-wait-online\nsystemctl mask network-online.target\nyes | dnf install make kernel-devel gcc gcc-c++ bc bison flex alacritty openssl-devel\nrpi-header-update\nrpi-initramfs-update\nsystemctl enable raspi-firstboot.service\nyes | dnf install cloud-utils-growpart e2fsprogs"
+    printf "#!/bin/bash\nprintf 'root\\nroot\\n' | passwd root\nyes | dnf update\nyes | dnf upgrade\nyes | dnf group install workstation-product-environment\nsystemctl --no-pager --no-legend list-unit-files --state=enabled 'virt*.service' | cut -d ' ' -f1 | xargs -r systemctl disable\nsystemctl disable rmtfs\nyes | dnf install NetworkManager brcmfmac-firmware bluez mesa-dri-drivers mesa-vulkan-drivers mesa-demos vulkan-tools git nano NetworkManager-tui NetworkManager-wifi linux-firmware fastfetch\niw reg set US\nsystemctl mask systemd-rfkill.socket\ngit clone --depth 1 https://github.com/raspberrypi/rpi-eeprom /opt/eeprom-updater\nprintf 'root\\nroot\\n' | passwd root\nsystemctl disable systemd-networkd-wait-online\nsystemctl mask network-online.target\nyes | dnf install make kernel-devel gcc gcc-c++ bc bison flex alacritty openssl-devel\nrpi-header-update\nrpi-initramfs-update\nsystemctl enable raspi-firstboot.service\nyes | dnf install cloud-utils-growpart e2fsprogs"
 }
 initramfs_updater() {
     printf '#!/bin/bash\ndracut -vf --regenerate-all\ncp /boot/initramfs-$(uname -r).img /boot/initramfs.img\nrpi-boot-update'
@@ -111,7 +111,7 @@ eeprom_update() {
     printf '#!/bin/bash\ncd /opt/eeprom-updater\ngit pull\nPATH=/opt/eeprom-updater/\nFIRMWARE_RELEASE_STATUS=latest\nBOOTFS=/boot\n/opt/eeprom-updater/rpi-eeprom-update -a\nrpi-boot-update\nsync\n'
 }
 cmdline_update() {
-    printf '#!/bin/bash\necho "$(cat /proc/cmdline | sed "s/reboot=w //g" | sed "s/ rw / /g" | sed "s/ rhgb / /g | sed "s/ quiet / /g" | sed "s/ splash / /g" | sed "s/ plymouth.enable=1//g") rw rhgb quiet splash plymouth.enable=1" > /boot/cmdline.txt\nrpi-boot-update'
+    printf '#!/bin/bash\necho "$(cat /proc/cmdline | sed "s/reboot=w //g" | sed "s/ rw / /g" | sed "s/ rhgb / /g" | sed "s/ quiet / /g" | sed "s/ splash / /g" | sed "s/ plymouth.enable=1//g") rw rhgb quiet splash plymouth.enable=1" > /boot/cmdline.txt\nrpi-boot-update'
 }
 rpi_update() {
     printf '#!/bin/bash\nrpi-eeprom-update\nrpi-kernel-update\nrpi-cmdline-update\nrpi-config-update\nsync'
