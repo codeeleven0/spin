@@ -33,7 +33,7 @@ Mount the old boot medium containing the files and clone it to the new boot medi
 * rfkill is disabled by default.
 * Dracut creates initramfs for every kernel found at /lib/modules.
 * The tool does not flash for now.
-* The tool creates images that are sized 16GB.
+* The tool creates images that are sized 8GB.
 * The tool compresses the image using xz.
 * Alacritty comes preinstalled.
 * `root` password is `root`
@@ -41,6 +41,7 @@ Mount the old boot medium containing the files and clone it to the new boot medi
 * Install docker. (and arm64 support)
 * Configure the spin-container scripts' configuration area.
 * Run `sh setup.sh`
-* You should now have `fedora-flash.img.xz`!
+* You should now have `fedora-flash.img.xz` and `fedora-flash.img`!
+* The container will be deleted after copying images.
 # How to flash?
-* Use the Raspberry Pi Imager to flash `fedora-flash.tar.xz` to your configured boot medium.
+* Use the Raspberry Pi Imager to flash `fedora-flash.img.xz` or `fedora-flash.img` to your configured boot medium.
