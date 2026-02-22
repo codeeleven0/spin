@@ -1,0 +1,302 @@
+#!/bin/bash
+# spin: Fedora container imager - tested on Raspberry Pi 5
+# requires git, wget, grep, sed, cut, bash, arch-install-scripts, root access, tar, xz
+## configuration begin ##
+# spin data path
+SPINROOT="spinroot"
+# ONLY arm64 is supported. arm64 for 64 bit, arm for 32 bit
+SPINARCH="arm64"
+# 8 for armv8, 8r for 8_rt kernel; 7 for armv7, 7l for armv7l; 2712 for Pi 5; 0 for default
+ARMVERSION="2712"
+# Boot mode, mmc for SD, msd for USB
+BOOTMODE="mmc"
+## configuration end ##
+
+KERNEL=""
+KERNEL_CONFIG=""
+FIRMWARE_REPO="https://github.com/raspberrypi/firmware"
+EEPROM_REPO="https://github.com/raspberrypi/rpi-eeprom"
+mkdir -p $SPINROOT/{images,rootfs,caches}
+cd $SPINROOT
+rm -fr caches/*
+config_arm64() {
+    printf "kernel=spinkernel.img\ninitramfs initramfs.img\ndtoverlay=vc4-kms-v3d\nmax_framebuffers=2\narm_boost=1\narm_64bit=1\ndtparam=audio=on\ndisplay_auto_detect=1\ncamera_auto_detect=1\ndisable_fw_kms_setup=1"
+}
+config_arm() {
+    printf "kernel=spinkernel.img\ninitramfs initramfs.img\ndtoverlay=vc4-kms-v3d\nmax_framebuffers=2\narm_boost=1\narm_64bit=0\ndtparam=audio=on\ndisplay_auto_detect=1\ncamera_auto_detect=1\ndisable_fw_kms_setup=1"
+}
+setup_firmware() {
+    echo "[i] downloading latest Raspberry Pi firmware"
+    git clone --depth 1 $FIRMWARE_REPO caches/firmware
+    echo "[i] done downloading latest Raspberry Pi firmware"
+    if [[ "$SPINARCH" == "arm64" ]]; then
+        config_arm64 > caches/firmware/boot/config.txt
+    fi
+    if [[ "$SPINARCH" == "arm" ]]; then
+        config_arm > caches/firmware/boot/config.txt
+    fi
+    case $ARMVERSION in 
+        8)
+            cp caches/firmware/boot/kernel8.img caches/firmware/boot/spinkernel.img
+            KERNEL=kernel8
+            KERNEL_CONFIG=bcm2711_defconfig
+            echo $KERNEL > caches/firmware/boot/kernel.info
+            echo $KERNEL_CONFIG > caches/firmware/boot/kernel.config
+            ;;
+        8r)
+            cp caches/firmware/boot/kernel8_rt.img caches/firmware/boot/spinkernel.img
+            KERNEL=kernel8_rt
+            KERNEL_CONFIG=bcm2711_defconfig
+            echo $KERNEL > caches/firmware/boot/kernel.info
+            echo $KERNEL_CONFIG > caches/firmware/boot/kernel.config
+            ;;
+        7)
+            cp caches/firmware/boot/kernel7.img caches/firmware/boot/spinkernel.img
+            KERNEL=kernel7
+            KERNEL_CONFIG=bcm2709_defconfig
+            echo $KERNEL > caches/firmware/boot/kernel.info
+            echo $KERNEL_CONFIG > caches/firmware/boot/kernel.config
+            ;;
+        7l)
+            cp caches/firmware/boot/kernel7l.img caches/firmware/boot/spinkernel.img
+            KERNEL=kernel7l
+            KERNEL_CONFIG=bcm2711_defconfig
+            echo $KERNEL > caches/firmware/boot/kernel.info
+            echo $KERNEL_CONFIG > caches/firmware/boot/kernel.config
+            ;;
+        0)
+            cp caches/firmware/boot/kernel.img caches/firmware/boot/spinkernel.img
+            KERNEL=kernel
+            KERNEL_CONFIG=bcmrpi_defconfig
+            echo $KERNEL > caches/firmware/boot/kernel.info
+            echo $KERNEL_CONFIG > caches/firmware/boot/kernel.config
+            ;;
+        2712)
+            cp caches/firmware/boot/kernel_2712.img caches/firmware/boot/spinkernel.img
+            KERNEL=kernel_2712
+            KERNEL_CONFIG=bcm2712_defconfig
+            echo $KERNEL > caches/firmware/boot/kernel.info
+            echo $KERNEL_CONFIG > caches/firmware/boot/kernel.config
+            ;;
+    esac
+    echo "[i] created boot partition files"
+}
+fstab() {
+    if [[ "$BOOTMODE" == "mmc" ]]; then
+        printf "proc /proc proc defaults 0 0\n/dev/mmcblk0p1 /rpiconf vfat defaults 0 2\n/dev/mmcblk0p2 / ext4 defaults,noatime 0 1"
+    fi
+    if [[ "$BOOTMODE" == "msd" ]]; then
+        printf "proc /proc proc defaults 0 0\n/dev/sda1 /rpiconf vfat defaults 0 2\n/dev/sda2 / ext4 defaults,noatime 0 1"
+    fi
+}
+workstation_install_script() {
+    printf "#!/bin/bash\nprintf 'root\\nroot\\n' | passwd root\nyes | dnf update\nyes | dnf upgrade\nyes | dnf group install workstation-product-environment\nsystemctl --no-pager --no-legend list-unit-files --state=enabled 'virt*.service' | cut -d ' ' -f1 | xargs -r systemctl disable\nsystemctl disable rmtfs\nyes | dnf install NetworkManager brcmfmac-firmware bluez mesa-dri-drivers mesa-vulkan-drivers mesa-demos vulkan-tools git nano NetworkManager-tui NetworkManager-wifi linux-firmware fastfetch\niw reg set US\nsystemctl mask systemd-rfkill.socket\ngit clone --depth 1 https://github.com/raspberrypi/rpi-eeprom /opt/eeprom-updater\nprintf 'root\\nroot\\n' | passwd root\nsystemctl disable systemd-networkd-wait-online\nsystemctl mask network-online.target\nyes | dnf install make kernel-devel gcc gcc-c++ bc bison flex openssl-devel"
+}
+initramfs_updater() {
+    printf '#!/bin/bash\ndracut -vf --regenerate-all\ncp /boot/initramfs-$(uname -r).img /boot/initramfs.img\nrpi-boot-update'
+}
+header_updater() {
+    printf '#!/bin/bash\ngit clone --depth 1 https://github.com/raspberrypi/linux /tmp/krnlhdr\ncd /tmp/krnlhdr\nKERNEL=$(cat /boot/kernel.info)\nmake $(cat /boot/kernel.config)\nmake prepare headers_install\nsync\ncd -\nrm -fr /tmp/krnlhdr\nsync\n'
+}
+kernel_updater() {
+    printf '#!/bin/bash\ngit clone --depth 1 https://github.com/raspberrypi/firmware /tmp/kernelupd\ncp /boot/kernel.info /tmp/krnl\ncp /boot/kernel.config /tmp/kconfig\nrm -fr /boot/*\ncp -r /tmp/kernelupd/boot/* /boot/\ncp -r /tmp/kernelupd/modules/* /lib/modules/\nmkdir -p /opt/kernel-extras\ncp -r /tmp/kernelupd/extra /opt/kernel-extras\nrm -fr /tmp/kernelupd\ncp /tmp/krnl /boot/kernel.info\ncp /tmp/kconfig /boot/kernel.config\ncp /boot/$(cat /boot/kernel.info).img /boot/spinkernel.img\nrm -fr /rpiconf/*\ncp -r /boot/* /rpiconf/\necho "[syncing disks...]"\nsync\nrpi-config-update\nrpi-boot-update\nrpi-header-update\necho "[syncing disks..]"\nsync\necho "Done!"'
+}
+config_update() {
+    printf '#!/bin/bash\ncp /opt/rpiconfig.txt /boot/config.txt\ncp /opt/rpiconfig.txt /rpiconf/config.txt\nsync'
+}
+bootdir_update() {
+    printf '#!/bin/bash\ncp -r /boot/* /rpiconf/\necho "[syncing disks...]"\nsync\nrpi-config-update'
+}
+eeprom_update() {
+    printf '#!/bin/bash\ncd /opt/eeprom-updater\ngit pull\nPATH=/opt/eeprom-updater/\nFIRMWARE_RELEASE_STATUS=latest\nBOOTFS=/boot\n/opt/eeprom-updater/rpi-eeprom-update -a\nrpi-boot-update\nsync\n'
+}
+cmdline_update() {
+    printf '#!/bin/bash\necho "$(cat /proc/cmdline | sed "s/reboot=w //g" | sed "s/ rw / /g" | sed "s/ rhgb / /g | sed "s/ quiet / /g" | sed "s/ splash / /g" | sed "s/ plymouth.enable=1//g") rw rhgb quiet splash plymouth.enable=1" > /boot/cmdline.txt\nrpi-boot-update'
+}
+rpi_update() {
+    printf '#!/bin/bash\nrpi-eeprom-update\nrpi-kernel-update\nrpi-cmdline-update\nrpi-config-update\nsync'
+}
+setup_distro() {
+    sudo echo
+    setup_firmware
+    IMAGENAME="$(date "+%d%h%Y_%H-%M-%S")"
+    ROOTFS=$1
+    echo "[i] creating new image '$IMAGENAME'"
+    mkdir -p images/$IMAGENAME
+    cd images/$IMAGENAME
+    sudo tar xf ../../rootfs/$ROOTFS.tar.xz
+    echo "[i] unpacked rootfs"
+    sudo mkdir -p boot etc lib/modules rpiconf opt
+    sudo unlink etc/resolv.conf
+    sudo touch etc/resolv.conf
+    echo "[i] installing boot files"
+    sudo cp -r ../../caches/firmware/boot/* boot/
+    sudo cp boot/config.txt opt/rpiconfig.txt
+    sudo cp opt/rpiconfig.txt opt/rpiconfig_default.txt
+    sudo touch boot/this_folder_is_not_it
+    echo "# Please check /rpiconf and /opt/rpiconfig.txt. If can't, use rpi-boot-update and rpi-config-update." > ../../caches/warning
+    sudo cp ../../caches/warning boot/warning
+    echo "[i] installing kernel modules"
+    sudo cp -r ../../caches/firmware/modules/* lib/modules/
+    echo "[i] applying mods"
+    fstab > ../../caches/fstab
+    sudo cp ../../caches/fstab etc/fstab
+    sudo cat etc/os-release > ../../caches/os-release
+    cat ../../caches/os-release | sed "s/ (Container Image)//g" | sudo tee etc/os-release 
+    echo "[i] installing workstation"
+    workstation_install_script | sudo tee opt/workstation_install
+    sudo chmod +x opt/workstation_install
+    kernel_updater | sudo tee sbin/rpi-kernel-update
+    config_update | sudo tee sbin/rpi-config-update
+    bootdir_update | sudo tee sbin/rpi-boot-update
+    eeprom_update | sudo tee sbin/rpi-eeprom-updater
+    header_updater | sudo tee sbin/rpi-header-update
+    initramfs_updater | sudo tee sbin/rpi-initramfs-update
+    cmdline_update | sudo tee sbin/rpi-cmdline-update
+    rpi_update | sudo tee sbin/rpi-update
+    sudo chmod +x sbin/rpi-config-update
+    sudo chmod +x sbin/rpi-kernel-update
+    sudo chmod +x sbin/rpi-boot-update
+    sudo chmod +x sbin/rpi-eeprom-updater
+    sudo chmod +x sbin/rpi-header-update
+    sudo chmod +x sbin/rpi-initramfs-update
+    sudo chmod +x sbin/rpi-cmdline-update
+    sudo chmod +x sbin/rpi-update
+    sudo arch-chroot . /opt/workstation_install
+    sudo rm -fr opt/workstation_install
+    echo "[i] unpacking firmware blobs"
+    echo "cypress"
+    IFS=$'\n'; for fw in $(find lib/firmware/cypress/*.xz); do
+        fwname="$(echo "$fw" | rev | cut -c4- | rev)"
+        sudo rm -fr ../../caches/firmwareblob
+        sudo xzcat "$fw" > ../../caches/firmwareblob
+        sudo cp ../../caches/firmwareblob "$fwname"
+        printf "."
+    done
+    echo ""
+    echo "brcm"
+    IFS=$'\n'; for fw in $(find lib/firmware/brcm/*.xz); do
+        fwname="$(echo "$fw" | rev | cut -c4- | rev)"
+        sudo rm -fr ../../caches/firmwareblob
+        sudo xzcat "$fw" > ../../caches/firmwareblob
+        sudo cp ../../caches/firmwareblob "$fwname"
+        printf "."
+    done
+    echo ""
+    echo "options brcfmac country=US" | sudo tee etc/modprobe.d/brcfmac.conf
+    echo ""
+    echo ==========================================================
+    echo You are on your own. Modify the image as much as you want.
+    echo ==========================================================
+    sudo arch-chroot .
+}
+mkimg() {
+    ROOTFS=$2
+    if [[ "$ROOTFS" == "" ]]; then
+        echo "[!] no rootfs specified"
+        return 1;
+    fi
+    if [[ -e rootfs/$ROOTFS.tar.xz ]]; then 
+        setup_distro $ROOTFS
+    fi
+}
+distros() {
+    DISTROS=$(wget -q -O - https://images.linuxcontainers.org/images/ | grep -i "<a.*>.*</a>" | cut -d '>' -f2 | cut -d '<' -f1 | sed 1d | cut -d '/' -f1)
+    echo $DISTROS;
+}
+dirimg() {
+    declare -a IMAGES
+    cnt=0
+    DL="fedora"
+    if echo "$(distros)" | grep -qw "$DL"; then
+        true
+    else
+        echo "[!] can't communicate with the server"
+        return 1
+    fi
+    echo "[i] fetching index"
+    distron=$DL
+    VERSIONS=$(wget -q -O - https://images.linuxcontainers.org/images/$distron/ | grep -i "<a.*>.*</a>" | cut -d '>' -f2 | cut -d '<' -f1 | sed 1d)
+    for version in $VERSIONS; do
+        version=$(echo $version | cut -d '/' -f1)
+        latest="$(wget -q -O - https://images.linuxcontainers.org/images/$distron/$version/$SPINARCH/default/ | grep -i "<a.*>.*</a>" | cut -d '>' -f2 | cut -d '<' -f1 | sed 1d | tail -n1 | cut -d '/' -f1 | tail -n1)"
+        if [[ "$latest" == "" ]]; then
+            echo "[!] distro does not have arch $SPINARCH"
+            return 1;
+        fi
+        IMAGES+=("$distron:$version")
+    done
+    echo "[i] fetching done"
+    for image in "${IMAGES[@]}"; do
+        echo "-> $image"
+    done
+    echo "latest: ${IMAGES[$((${#IMAGES[@]}-1))]}"
+    echo "[i] run 'spin pull imagename' to pull a Fedora image to your system."
+}
+imageresolve() {
+    NAME=$1
+    DISTNAME=$(echo $NAME | cut -d ':' -f1)
+    VERSION=$(echo $NAME | cut -d ':' -f2)
+    latest="$(wget -q -O - https://images.linuxcontainers.org/images/$DISTNAME/$VERSION/$SPINARCH/default/ | grep -i "<a.*>.*</a>" | cut -d '>' -f2 | cut -d '<' -f1 | sed 1d | tail -n1 | cut -d '/' -f1 | tail -n1)"
+    printf "https://images.linuxcontainers.org/images/$DISTNAME/$VERSION/$SPINARCH/default/$latest/"
+}
+pull() {
+    # "DISTRO:VERSION"
+    NAME=$2
+    mkdir -p caches/$NAME
+    URL=$(imageresolve $NAME)
+    echo $URL
+    cd caches/$NAME
+    echo "[i] downloading sha256 hashes"
+    wget -q --show-progress "$URL/SHA256SUMS"
+    echo "[i] downloading root filesystem"
+    wget -q --show-progress "$URL/rootfs.tar.xz"
+    if ! (grep "rootfs.tar.xz" SHA256SUMS | sha256sum --check --status -); then
+        echo "[!] verifying image failed"
+        cd ..
+        rm -fr $NAME
+        return 1;
+    fi
+    echo "[i] verified image"
+    cd ..
+    cd ..
+    mv caches/$NAME/rootfs.tar.xz rootfs/$NAME.tar.xz
+    rm -fr caches/$NAME
+    echo "[i] downloaded image"
+}
+helptext() {
+    echo "spin - Fedora container imager for Raspberry Pi"
+    echo "  dir - list filesystems from Fedora (source: lxc)"
+    echo "  pull - pulls distro image (source: lxc)"
+    echo "  mkimg - creates distro image"
+    echo "  help - shows this help"
+    echo "  lsfs - lists rootfs archives"
+    echo "  ls - lists images"
+}
+ACTION=$1
+if [[ "$ACTION" == "" ]]; then
+    ACTION=help
+fi
+case $ACTION in
+    dir)
+        dirimg
+        ;;
+    pull)
+        pull $@
+        ;;
+    mkimg)
+        mkimg $@
+        ;;
+    help)
+        helptext
+        ;;
+    lsfs)
+        ls -lh rootfs
+        ;;
+    ls)
+        ls -lh images
+        ;;
+    *)
+        helptext
+        ;;
+esac
