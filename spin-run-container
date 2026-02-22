@@ -6,7 +6,7 @@ fallocate -l 16G fedora-flash.img
 LOOPDEV="$(losetup -fP --show fedora-flash.img)"
 udevadm settle
 sleep 1
-parted --script "$LOOPDEV" mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
+parted --script "$LOOPDEV" mklabel msdos mkpart primary fat32 1MiB 1025MiB mkpart primary ext4 1026MiB 100%
 udevadm settle
 sleep 3
 partprobe
