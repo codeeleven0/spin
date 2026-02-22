@@ -1,7 +1,8 @@
 # spin
 Install Linus Torvalds' favorite distro on your Raspberry Pi
 # What is spin?
-**THIS SOFTWARE IS EXPERIMENTAL, CONTINUE WITH CAUTION**
+> **THIS SOFTWARE IS EXPERIMENTAL, CONTINUE WITH CAUTION**<br>
+
 Fedora Linux installer for Raspberry Pi. Tested on Raspberry Pi 5 (8GB) + Fedora 43 installation + Raspberry Pi OS latest to run spin.<br>
 This tool installs Fedora Linux to a USB device or an SD card with required Raspberry Pi firmware. It should be used in aarch64 Linux devices that support chroot and have root access, wget, tar, git, xz, arch-install-scripts, sudo etc. It installs Fedora Linux to an *external* drive. To use the tool in another kernel or another architecture (not tested) you could use a container that supports chroot to do so. Fedora roots are downloaded from [https://images.linuxcontainers.org/](https://images.linuxcontainers.org/). Kernel and EEPROM is fetched from Raspberry Pi's firmware repository. Fedora and spin do **not** support *32-bit ARM* architectures, the parameters are there for further customisation.
 # Known Issues
