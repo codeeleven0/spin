@@ -10,8 +10,10 @@ mksquashfs . /root/artifacts/fedora-root.sfs
 cd boot
 mksquashfs . /root/artifacts/fedora-boot.sfs
 cd /root/artifacts
+losetup --detach /dev/loop99
+rm -fr /dev/loop99
 mknod /dev/loop99 b 7 99
-fallocate -l 8G fedora-flash.img
+fallocate -l 16G fedora-flash.img
 losetup -P /dev/loop99 fedora-flash.img
 sleep 1
 parted --script /dev/loop99 -- mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
