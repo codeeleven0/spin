@@ -5,3 +5,4 @@ docker run -it --privileged=true --name $CNAME spin-pi-fedora-builder
 docker cp $CNAME:/root/artifacts/fedora-flash.img.xz .
 docker cp $CNAME:/root/artifacts/fedora-flash.img .
 docker rm $CNAME
+docker rmi spin-pi-fedora-builder
