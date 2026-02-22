@@ -13,6 +13,7 @@ This tool installs Fedora Linux to a USB device or an SD card with required Rasp
 * Kernel headers are only for arm64
 * First boot may not have a splash due to the kernel configuration not being done.
 * Installing Linux kernel from Fedora might break the installation. Use `rpi-*` tools to install these.
+* Desktop might hang because of ongoing disk operations.
 # Image configuration
 The spin tool installs the default Fedora Workstation (GNOME) into your system. To change this, change the "dnf group install workstation-product-environment" to another group you want to install. "dnf group install server-product-environment" installs Fedora Server. After the image is prepared to be installed, you will be on a chroot environment to modify the image.
 # Updates
