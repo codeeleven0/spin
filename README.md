@@ -9,7 +9,7 @@ This tool installs Fedora Linux to a USB device or an SD card with required Rasp
 * Plymouth doesn't work when powering off or rebooting.
 * Changing boot medium after installation requires more configuration.
 * /boot is separated from the real boot partition. The files get copied to /rpiconf. The config is stored at /opt/rpiconf.txt and the default config is stored at /opt/rpiconfig_default.txt
-* GPU works but sometimes might create unwanted artifacts on **desktop**. Logging out then logging back in again mostly fixes this issue. This issue does not happen in TTYs.
+* GPU works but sometimes might create unwanted artifacts on **desktop** (mostly corner radii and terminals with corner radii). Logging out then logging back in again mostly fixes this issue. This issue does not happen in TTYs.
 * Kernel headers are only for arm64
 * First boot may not have a splash due to the kernel configuration not being done.
 * Installing Linux kernel from Fedora might break the installation. Use `rpi-*` tools to install these.
@@ -31,3 +31,4 @@ Mount the old boot medium containing the files and clone it to the new boot medi
 * rfkill is disabled by default.
 * Dracut creates initramfs for every kernel found at /lib/modules.
 * The tool does not flash for now.
+* Alacritty comes preinstalled.
