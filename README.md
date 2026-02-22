@@ -33,7 +33,7 @@ Mount the old boot medium containing the files and clone it to the new boot medi
 * rfkill is disabled by default.
 * Dracut creates initramfs for every kernel found at /lib/modules.
 * The tool does not flash for now.
-* The tool creates images that are sized 8GB.
+* The tool creates images that are sized 16GB.
 * The tool compresses the image using xz.
 * Alacritty comes preinstalled.
 * `root` password is `root`
