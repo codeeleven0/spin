@@ -1,3 +1,4 @@
+rm -fr fedora-flash.img*
 CNAME=fedora-pi-builder-$RANDOM
 docker rmi spin-pi-fedora-builder
 docker build -t spin-pi-fedora-builder .

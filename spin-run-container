@@ -1,27 +1,44 @@
 #!/bin/bash
 # Spin container artifact generator
-cd /root/
-rm -fr /root/spinroot
-./spin-container pull fedora:43
-./spin-container mkimg fedora:43
 mkdir -p /root/artifacts
-cd /root/spinroot/images/*_*-*-*/
-mksquashfs . /root/artifacts/fedora-root.sfs
-cd boot
-mksquashfs . /root/artifacts/fedora-boot.sfs
 cd /root/artifacts
 fallocate -l 16G fedora-flash.img
 LOOPDEV="$(losetup -fP --show fedora-flash.img)"
 udevadm settle
 sleep 1
 parted --script "$LOOPDEV" mklabel msdos mkpart primary fat32 1MiB 513MiB mkpart primary ext4 514MiB 100%
+udevadm settle
 sleep 3
 partprobe
 partprobe "$LOOPDEV"
+udevadm settle
 sleep 1
+losetup -d $LOOPDEV
+LOOPDEV="$(losetup -fP --show fedora-flash.img)"
+udevadm settle
+sleep 3
+kpartx /dev/loop0
+kpartx -a /dev/loop0
+kpartx -asu /dev/loop0
+ln -s /dev/mapper/loop0p1 /dev/loop0p1
+ln -s /dev/mapper/loop0p2 /dev/loop0p2
+while [ ! -e "$LOOPDEV"p1 ]; do sleep 1; done
+while [ ! -e "$LOOPDEV"p2 ]; do sleep 1; done
 echo ======
 ls -l "$LOOPDEV"*
 echo ======
+
+
+cd /root
+rm -fr /root/spinroot
+./spin-container pull fedora:43
+./spin-container mkimg fedora:43
+cd /root/spinroot/images/*_*-*-*/
+mksquashfs . /root/artifacts/fedora-root.sfs
+cd boot
+mksquashfs . /root/artifacts/fedora-boot.sfs
+
+
 mkfs.fat -F 32 -n FEDORA-BOOT "$LOOPDEV"p1
 mkfs.ext4 -L fedora-root "$LOOPDEV"p2
 mkdir -p /mnt/fedora-{root,boot}
