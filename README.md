@@ -16,7 +16,7 @@ This tool installs Fedora Linux to a USB device or an SD card with required Rasp
 * First boot may not have a splash due to the kernel configuration not being done. (first boot does resizes and kernel configurations, dracut configs will be made.
 * Installing Linux kernel from Fedora might break the installation. Use `rpi-*` tools to install these. (packaging new kernel RPM's to make this not break in normal circumstances)
 * Desktop might hang because of ongoing disk operations. (
-* Broadcom Wi-Fi is slow. We can't control this because [Broadcom support is really bad on Linux](https://wiki.archlinux.org/title/Broadcom_wireless). (you will get half the speed)
+* Broadcom Wi-Fi is slow. We can't control this because [Broadcom support is really bad on Linux](https://wiki.archlinux.org/title/Broadcom_wireless). (you will get half the speed or even quarter, will check Raspberry Pi's own firmware, turning WiFi on and off helps)
 # Image configuration
 The spin tool installs the default Fedora Workstation (GNOME) into your system. To change this, change the "dnf group install workstation-product-environment" to another group you want to install. "dnf group install server-product-environment" installs Fedora Server. After the image is prepared to be installed it will be exported to your device.
 # Updates
